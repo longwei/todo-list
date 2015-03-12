@@ -2,11 +2,12 @@ __author__ = 'longwei'
 
 
 from flask import Flask
-from flask import render_template, request
+from flask import render_template, request, url_for, flash
 from flask_bootstrap import Bootstrap
 from flask_security import Security, SQLAlchemyUserDatastore, \
     UserMixin, RoleMixin, login_required
 import os
+import wtf_helpers
 
 #forms
 from flask_wtf import Form
@@ -27,6 +28,7 @@ app.config['SECURITY_REGISTERABLE'] = True
 app.config['SECURITY_SEND_REGISTER_EMAIL'] = False
 app.config['SECURITY_SEND_PASSWORD_CHANGE_EMAIL'] = False
 app.config['SECURITY_SEND_PASSWORD_RESET_NOTICE_EMAIL'] = False
+app.config['SECURITY_FLASH_MESSAGES'] = True
 
 #create db connection
 db = SQLAlchemy(app)
@@ -49,6 +51,7 @@ class User(db.Model, UserMixin):
     confirmed_at = db.Column(db.DateTime())
     roles = db.relationship('Role', secondary=roles_users,
                             backref=db.backref('users', lazy='dynamic'))
+    # ideas = db.relationship('Idea', backref='user', lazy='dynamic')
 
 # Setup Flask-Security
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
@@ -68,6 +71,7 @@ class Idea(db.Model):
 db.create_all()
 
 Bootstrap(app)
+wtf_helpers.add_helpers(app)
 @app.route("/", methods=["GET", "POST"])
 def index():
     form = IdeaForm()
@@ -76,20 +80,37 @@ def index():
         idea = Idea(form.idea_name.data)
         db.session.add(idea)
         db.session.commit()
+        flash("Idea was added successfully", "success")
+
     list_of_ideas = Idea.query.all()
     #current_user is magically passed in
-    return render_template("index.html", form = form, list_of_ideas= list_of_ideas)
+    return render_template("index.html", form=form, list_of_ideas=list_of_ideas)
 
 
 @app.route('/hello', methods=["GET"])
 def hello():
-    return "hello world";
+    return "hello world"
 
 @app.route('/hello', methods=["POST"])
 def yes():
     print "ack"
-    return "hello world";
+    return "hello world"
 
+
+@app.route("/site-map")
+def site_map():
+    import urllib
+    output = []
+    for rule in app.url_map.iter_rules():
+        options = {}
+        for arg in rule.arguments:
+            options[arg] = "[{0}]".format(arg)
+        methods = ','.join(rule.methods)
+        url = url_for(rule.endpoint, **options)
+        line = urllib.unquote("{:50s} {:20s} {}".format(rule.endpoint, methods, url))
+        output.append(line)
+    return render_template('sitemap.html', result=output)
+    # links is now a list of url, endpoint tuples
 
 if __name__ == "__main__":
     app.run(debug=True)

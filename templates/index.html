@@ -1,25 +1,22 @@
-{% extends "bootstrap/base.html" %}
+{% extends "base.html" %}
+
 {% import "bootstrap/wtf.html" as wtf %}
 
 {% block title %}This is an example page{% endblock %}
 
 {% block content %}
-<div class="container">
-  <h1>Hello, Bootstrap</h1>
-  <h2> {% if current_user.is_authenticated() %}
-         {{current_user.email}}
-       {% else%}
-         Anonymous
-       {% endif %}
-  </h2>
-  {{ wtf.quick_form(form, button_map={'submit_button': 'primary'}) }}
-  <ol>
-      {% for idea in list_of_ideas %}
-      <li>{{idea.idea_name}}</li>
-      {% else %}
-        <p>no idea</p>
-      {% endfor %}
-  </ol>
-</div>
-
+  {{ super() }}
+  <div class="container">
+    <h1>Hey, got an idea? </h1>
+    {{ wtf.quick_form(form, button_map={'submit_button': 'primary'}) }}
+    <p>
+        <ol>
+          {% for idea in list_of_ideas %}
+          <li>{{idea.idea_name}}</ li>
+          {% else %}
+          <li> No ideas yet! </li>   
+          {% endfor %}
+        </ol>
+    <p>
+  </div>
 {% endblock %}
