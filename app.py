@@ -2,6 +2,7 @@ __author__ = 'longwei'
 
 
 from flask import Flask
+from flask.ext.login import current_user
 from flask import render_template, request, url_for, flash
 from flask_bootstrap import Bootstrap
 from flask_security import Security, SQLAlchemyUserDatastore, \
@@ -51,19 +52,20 @@ class User(db.Model, UserMixin):
     confirmed_at = db.Column(db.DateTime())
     roles = db.relationship('Role', secondary=roles_users,
                             backref=db.backref('users', lazy='dynamic'))
-    # ideas = db.relationship('Idea', backref='user', lazy='dynamic')
+    ideas = db.relationship('Idea', backref='user', lazy='dynamic')
 
 # Setup Flask-Security
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 security = Security(app, user_datastore)
 
-
 class Idea(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     idea_name = db.Column(db.String(140))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-    def __init__(self, idea):
+    def __init__(self, idea, user):
         self.idea_name = idea
+        self.user_id = user.id
 
     def __repr__(self):
         return '<Idea %r>' % self.id
@@ -72,30 +74,41 @@ db.create_all()
 
 Bootstrap(app)
 wtf_helpers.add_helpers(app)
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
 def index():
-    form = IdeaForm()
-    if request.method == 'POST' and form.validate():
-        print "post"
-        idea = Idea(form.idea_name.data)
+    users = User.query
+    return render_template("index.html", users=users)
+    #
+    # form = IdeaForm()
+    # if request.method == 'POST' and form.validate():
+    #     print "post"
+    #     idea = Idea(form.idea_name.data)
+    #     db.session.add(idea)
+    #     db.session.commit()
+    #
+
+    # list_of_ideas = Idea.query.all()
+    # #current_user is magically passed in
+    # return render_template("index.html", form=form, list_of_ideas=list_of_ideas)
+
+
+@app.route("/ideas/<user_email>", methods = ["GET", "POST"])
+def ideas(user_email):
+    user = User.query.filter_by(email=user_email).first_or_404()
+
+    if user == current_user:
+        form = IdeaForm()
+    else:
+        form = None
+
+    if form and form.validate_on_submit():
+        idea = Idea(form.idea_name.data, user)
         db.session.add(idea)
         db.session.commit()
         flash("Idea was added successfully", "success")
-
-    list_of_ideas = Idea.query.all()
-    #current_user is magically passed in
-    return render_template("index.html", form=form, list_of_ideas=list_of_ideas)
-
-
-@app.route('/hello', methods=["GET"])
-def hello():
-    return "hello world"
-
-@app.route('/hello', methods=["POST"])
-def yes():
-    print "ack"
-    return "hello world"
-
+    list_of_ideas = user.ideas
+    return render_template("ideas.html", form=form,
+                               list_of_ideas=list_of_ideas, user_email=user_email)
 
 @app.route("/site-map")
 def site_map():
